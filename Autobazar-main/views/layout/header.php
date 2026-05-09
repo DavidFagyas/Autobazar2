@@ -17,6 +17,6 @@
 </head>
 <body>
     <div class="header">
-        <a href="login.php">Login</a>
-        <a href="register.php">Register</a>
+        <a href="views/auth/login.php">Login</a>
+        <a href="views/auth/register.php">Register</a>
     </div>

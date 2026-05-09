@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="Style1.css">
+    <link rel="stylesheet" href="assets/Style1.css">
     <title>Dostupné autá</title>
 </head>
 
@@ -25,7 +25,7 @@
 <section>
     
     <?php
-require 'db.php';
+require 'config/Database.php';
 session_start();
 
 // Kontrola, či je používateľ prihlásený a či je administrátor

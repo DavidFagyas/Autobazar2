@@ -1,109 +1,123 @@
+<?php
+session_start();
+
+/**
+ * 1. BIZTONSÁGI ELLENŐRZÉS
+ */
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+/**
+ * 2. ADATBÁZIS KAPCSOLAT
+ */
+require '../../config/Database.php';
+
+$error = "";
+
+/**
+ * 3. ŰRLAP FELDOLGOZÁSA (POST)
+ */
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $make = trim($_POST['make']);
+    $model = trim($_POST['model']);
+    $year = intval($_POST['year']);
+    $price = floatval($_POST['price']);
+    
+    $auto_neve = $make . " " . $model . " (" . $year . ")";
+    $leiras = "Model: " . $model . ", Rok: " . $year;
+
+    // 1. FŐKÉP KEZELÉSE (Ez megy az 'inzerati' táblába)
+    $target_dir = "../../assets/Auta/";
+    if (!is_dir($target_dir)) {
+        mkdir($target_dir, 0777, true);
+    }
+
+    $main_image_name = time() . "_main_" . basename($_FILES["image"]["name"]);
+    $main_target_file = $target_dir . $main_image_name;
+    $db_main_path = "assets/Auta/" . $main_image_name;
+
+    if (move_uploaded_file($_FILES["image"]["tmp_name"], $main_target_file)) {
+        
+        // BESZÚRÁS AZ INZERATI TÁBLÁBA
+        $stmt = $conn->prepare("INSERT INTO inzerati (Nazov, popis, cena, obraz) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssds", $auto_neve, $leiras, $price, $db_main_path);
+
+        if ($stmt->execute()) {
+            $last_id = $conn->insert_id; // Megkapjuk az új autó ID-ját
+
+            // 2. TÖBBI KÉP KEZELÉSE (Ha vannak feltöltve extra képek)
+            if (!empty($_FILES['gallery']['name'][0])) {
+                foreach ($_FILES['gallery']['tmp_name'] as $key => $tmp_name) {
+                    if ($_FILES['gallery']['error'][$key] == 0) {
+                        $gen_name = time() . "_gal_" . $_FILES['gallery']['name'][$key];
+                        $gen_target = $target_dir . $gen_name;
+                        $db_gal_path = "assets/Auta/" . $gen_name;
+
+                        if (move_uploaded_file($tmp_name, $gen_target)) {
+                            // Beszúrás a galéria táblába
+                            $stmt_gal = $conn->prepare("INSERT INTO galeria (inzerat_id, cesta_k_obrazku) VALUES (?, ?)");
+                            $stmt_gal->bind_param("is", $last_id, $db_gal_path);
+                            $stmt_gal->execute();
+                        }
+                    }
+                }
+            }
+
+            header("Location: ../../index.php");
+            exit();
+        } else {
+            $error = "Chyba pri zápise do databázy: " . $conn->error;
+        }
+    } else {
+        $error = "Nepodarilo sa nahrať hlavný obrázok!";
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="sk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="Style1.css">
-    <title>Pridať nové auto</title>
+    <link rel="stylesheet" href="../../assets/Style1.css">
+    <title>Pridať inzerát</title>
 </head>
 
 <body>
 <header>
-    <a href="index.php">
-        <img src="logo .jpg"  height="75px" width="105px" >
+    <a href="../../index.php">
+        <img src="../../assets/logo.jpg" height="75px" width="105px">
     </a>
-    <h1>Pridať nové auto</h1>
-    <nav style="top: auto;">
-        <ul class="navbar-nav">
-            <li><a class="nav-link" href="index.php">Domov</a></li>
-            <li><a class="nav-link" href="dostupne-auta.php">Dostupné autá</a></li>
-            <li><a class="nav-link" href="onas.php">O nás</a></li>
-            <li><a class="nav-link" href="kontakt.php">KONTAKT</a></li>
-        </ul>
-    </nav>
+    <h1>Pridať nový inzerát</h1>
 </header>
 
-<section>
-    <h3>Pridať nové auto</h3>
+<section style="padding: 40px; max-width: 500px; margin: auto; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+    <?php if(!empty($error)) echo "<p style='color:red;'>$error</p>"; ?>
 
-    <section id="new-car">
-        <form action="add_car.php" method="post" enctype="multipart/form-data">
-            <label for="make">Značka:</label>
-            <input type="text" id="make" name="make" required><br>
+    <form action="add_car.php" method="post" enctype="multipart/form-data">
+        <label>Značka:</label><br>
+        <input type="text" name="make" required style="width:100%;"><br><br>
 
-            <label for="model">Model:</label>
-            <input type="text" id="model" name="model" required><br>
+        <label>Model:</label><br>
+        <input type="text" name="model" required style="width:100%;"><br><br>
 
-            <label for="year">Rok výroby:</label>
-            <input type="text" id="year" name="year" required><br>
+        <label>Rok výroby:</label><br>
+        <input type="number" name="year" required style="width:100%;"><br><br>
 
-            <label for="price">Cena:</label>
-            <input type="text" id="price" name="price" required><br>
+        <label>Cena (€):</label><br>
+        <input type="number" name="price" step="0.01" required style="width:100%;"><br><br>
 
-            <label for="image">Výber obrázka:</label>
-            <input type="file" id="image" name="image" accept="image/*" required><br>
+        <label><strong>Hlavná fotka (titulná):</strong></label><br>
+        <input type="file" name="image" accept="image/*" required><br><br>
 
-            <input type="submit" value="Pridať">
-        </form>
-    </section>
+        <label><strong>Ostatné fotky do galérie (viacero):</strong></label><br>
+        <input type="file" name="gallery[]" accept="image/*" multiple><br>
+        <small style="color: gray;">Tu môžete označiť naraz viac fotiek (Ctrl + klik)</small><br><br>
+
+        <input type="submit" value="Uložiť inzerát" class="footerbtn" style="width:100%; cursor:pointer;">
+    </form>
 </section>
-
-<footer>
-    <div class="col-25">
-        <h3>Tu nás nájdete</h3>
-        <iframe src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d10614.839764656655!2d18.0910518!3d48.3084298!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0xba2bad032d96b960!2sFakulta%20pr%C3%ADrodn%C3%BDch%20vied%20a%20informatiky!5e0!3m2!1ssk!2ssk!4v1669307792855!5m2!1ssk!2ssk" width="650" height="280" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe> 
-    </div>
-    <div class="footermenu2">
-        <h3>Sledujte nás!</h3>
-        <div class="footerikony">
-            <a href="https://www.facebook.com/david.fagyas.3"><i class="fab fa-facebook-f"></i></a>
-            <a href="https://www.instagram.com/_15david_/"><i class="fab fa-instagram"></i></a>  
-        </div> 
-    </div>
-    <h3>Pripojte sa k odberu noviniek</h3><br><br><br><br>
-    <div class="footermail">
-        <input type="email" placeholder="ZADAJTE VÁŠ EMAIL"  class="footerinput"> <br>
-        <button class="footerbtn">ODOSLAŤ</button>
-    </div>
-</footer>
-<footer>
-    <div class="footermenu2">
-        <span class="autor">&copy;Dávid Fagyas, 2023.</span>
-    </div>
-</footer>
-
-
-<?php
-require 'db.php';
-session_start();
-
-// Spracovanie a uloženie do databázy
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $make = $_POST['make'];
-    $model = $_POST['model'];
-    $year = $_POST['year'];
-    $price = $_POST['price'];
-
-    // Nahratie obrázka
-    $target_dir = "Auta/";
-    $target_file = $target_dir . basename($_FILES["image"]["name"]);
-    move_uploaded_file($_FILES["image"]["tmp_name"], $target_file);
-
-    // SQL vloženie
-    $sql = "INSERT INTO cars (make, model, year, price, image, user_id) 
-            VALUES ('$make', '$model', '$year', '$price', '$target_file', '{$_SESSION['user_id']}')";
-    
-    if ($conn->query($sql) === TRUE) {
-        header("Location: index.php"); // Návrat na úvodnú stránku
-        exit();
-    } else {
-        echo "Chyba pri pridávaní: " . $conn->error;
-    }
-}
-
-$conn->close();
-?>
-
-
 </body>
 </html>
