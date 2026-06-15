@@ -1,105 +1,208 @@
-<?php session_start(); ?>
-<!DOCTYPE html>
-<html lang="sk">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="assets/Style1.css">
-    <title>Autobazár Dávid</title>
-</head>
+<?php 
+// 1. Kapcsolat és az új Hirdetés-kezelő osztály behívása
+require_once 'config/Database.php'; 
+require_once 'models/Inzerat.php'; 
 
-<body>
-<header>
-    <a href="index.php">
-        <img src="assets/logo.jpg" height="75px" width="105px">
-    </a>
-    <h1>Autobazár Dávid</h1>
+// 2. OOP objektum példányosítása és az adatok lekérése
+$inzeratManager = new Inzerat($conn);
+$slides = $inzeratManager->getLatestSlides(3);
+
+// 3. Header behívása
+include_once 'views/layout/header.php'; 
+?>
+
+<style>
+    /* Felülírjuk az összes lehetséges elemet, ami feleslegesen nyújtaná lefelé az oldalt */
+    html, body, main, div, section, article {
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+    }
+
+    body {
+        background-color: #333 !important;
+        color: #fff !important;
+    }
     
-    <div class="header">
-        <?php if (isset($_SESSION['user_id'])): ?>
-            <!-- Ez látszik, ha BE VAN jelentkezve -->
-            <?php echo htmlspecialchars($_SESSION['username'] ?? 'Používateľ'); ?>
-            <a href="views/cars/add_car.php" style="background-color: #4CAF50; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none;">+ Pridať inzerát</a>
-            <a href="views/auth/logout.php" style="color: red; margin-left: 15px;">Odhlásiť sa</a>
-        <?php else: ?>
-            <!-- Ez látszik, ha NINCS bejelentkezve -->
-            <a href="views/auth/login.php">Login</a>
-            <a href="views/auth/register.php">Register</a>
-        <?php endif; ?>
-    </div>
+    /* Cookie sáv stílusa */
+    #cookies {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        width: 90%;
+        max-width: 600px;
+        background: #222;
+        color: #fff;
+        padding: 15px 25px;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    }
+    #cookies p { margin: 0; font-size: 14px; line-height: 1.5; color: #fff; }
+    #cookies-btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 6px 15px;
+        margin-left: 15px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
 
-    <nav style="top: auto;">
-        <ul class="navbar-nav">
-            <li><a class="nav-link" href="index.php">Domov</a></li>
-            <li><a class="nav-link" href="dostupne-auta.php">Dostupné autá</a></li>
-            <li><a class="nav-link" href="onas.php">O nás</a></li>
-            <li><a class="nav-link" href="kontakt.php">KONTAKT</a></li>
-        </ul>
-    </nav>
+    /* Szöveges rész: Szigorúan TILOS neki magasságot adni, és a margókat is lenullázzuk */
+    .info-section, section {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        max-width: 1000px;
+        margin: 20px auto 0 auto !important;
+        padding: 10px 20px !important;
+        display: block !important;
+    }
+
+    .info-section p, section p {
+        margin: 0 0 15px 0 !important;
+        padding: 0 !important;
+        line-height: 1.6;
+    }
+
+    /* Cím: Közvetlenül a szöveg alá tapad */
+    .sekcia-nadpis {
+        max-width: 1000px;
+        margin: 20px auto 15px auto !important;
+        padding: 0 20px;
+        color: #fff !important;
+        font-size: 24px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 1px;
+        display: block !important;
+    }
+
+    /* Slideshow tároló: Szorosan a cím alatt, és középre zárt */
+    .slideshow-container {
+        max-width: 1000px;
+        position: relative;
+        margin: 0 auto 40px auto !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        display: block !important;
+    }
     
-</header>
+    .mySlides {
+        width: 100%;
+        display: none;
+        background: transparent !important;
+        border: none !important;
+    }
 
-<!-- Cookie sáv -->
-<div id="cookies">
-    <div class="containter">
-        <div class="subcontainer">
-            <div class="cookies">
-                <p>Tento web používa na poskytovanie služieb a analýzu návštevnosti súbory cookie. 
-                    <a href="">Dozvedieť sa viac</a>
-                    <button id="cookies-btn">Rozumiem</button>
-                </p>
-            </div>
-        </div>
-    </div>
+    .mySlides img {
+        width: 100%;
+        max-width: 1000px;
+        height: 500px;
+        object-fit: cover;
+        border-radius: 8px;
+        display: block;
+    }
+
+    .slide-caption {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.75);
+        color: white;
+        padding: 12px 25px;
+        border-radius: 30px;
+        font-size: 18px;
+    }
+
+    /* Footer fixek */
+    footer {
+        background: #1a1a1a !important;
+        color: #ccc;
+        padding: 40px 20px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        gap: 30px;
+        border-top: 3px solid #222;
+        margin-top: 40px;
+    }
+    footer iframe { border-radius: 6px; max-width: 100%; }
+    .footernadpis { color: #fff; font-size: 18px; margin-bottom: 15px; text-transform: uppercase; }
+    .footerikony a {
+        color: #fff; background: #333; width: 40px; height: 40px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 50%; margin-right: 10px; text-decoration: none;
+    }
+    .footerinput { padding: 10px 15px; border: 1px solid #444; background: #2a2a2a; color: #fff; border-radius: 4px; width: 200px; }
+    .footerbtn { padding: 10px 20px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .footer-bottom { background: #111; padding: 15px; text-align: center; color: #666; font-size: 14px; }
+    .hore { position: fixed; bottom: 30px; right: 30px; background: #007bff; color: white; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 999; }
+</style>
+
+<div id="cookies" style="display:none;">
+    <p>Tento web používa na poskytovanie služieb a analýzu návštevnosti súbory cookie. 
+        <a href="">Dozvedieť sa viac</a>
+        <button id="cookies-btn">Rozumiem</button>
+    </p>
 </div>
 
-<section style="padding: 20px;">
-    <p>Riadenie vzťahov so zákazníkmi: predajcovia automobilov musia rozvíjať úzke vzťahy so zákazníkmi.<br> 
-    Pomáhajú im vybrať si správne auto na základe ich potrieb a rozpočtu.<br><br>
-    Riadenie procesu predaja: predajcovia sú zodpovední za celkové riadenie procesu predaja.<br> 
-    To zahŕňa informovanie zákazníkov, prezentáciu automobilov, riadenie predajného procesu a vypracovanie predajných zmlúv.<br><br>
-    Analýza trhu: sledujú trendy na trhu s automobilmi a sú informovaní o aktuálnych cenách, modeloch a ďalších relevantných informáciách.</p>
+<section class="info-section" style="height: auto !important; min-height: auto !important;">
+    <p>Riadenie vzťahov so zákazníkmi: predajcovia automobilov musia rozvíjať úzke vzťahy so zákazníkmi. 
+    Pomáhajú im vybrať si správne auto na základe ich potrieb a rozpočtu.</p>
+    
+    <p>Riadenie procesu predaja: predajcovia sú zodpovední za celkové riadenie procesu predaja. 
+    To zahŕňa informovanie zákazníkov, prezentáciu automobilov, riadenie predajného procesu a vypracovanie predajných zmlúv.</p>
+    
+    <p>Analýza trhu: sledujú trendy na trhu s automobilmi a sú informovaní o aktuálnych cenách, modeloch a ďalších relevantných informáciách.</p>
 </section>
 
+<h2 class="sekcia-nadpis">Aktuálne ponuky</h2>
+
 <div class="slideshow-container">
-    <div class="mySlides">
-        <img src="autoslideshow/car1_show.webp" style="width:100%">
-    </div>
-    <div class="mySlides">
-        <img src="autoslideshow/car2_show.jpeg" style="width:100%">
-    </div>
-    <div class="mySlides">
-        <img src="autoslideshow/car4_show.jpg" style="width:100%">
-    </div>
-</div>  
+    <?php if (!empty($slides)): ?>
+        <?php foreach ($slides as $slide): ?>
+            <div class="mySlides" style="position: relative;">
+                <a href="car-details.php?id=<?php echo $slide['id']; ?>">
+                    <img src="<?php echo $slide['obraz']; ?>">
+                </a>
+                <div class="slide-caption">
+                    <?php echo htmlspecialchars($slide['Nazov']); ?>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <div class="mySlides"><img src="autoslideshow/car1_show.webp"></div>
+        <div class="mySlides"><img src="autoslideshow/car2_show.jpeg"></div>
+    <?php endif; ?>
+</div>   
 
 <script>
-    // Slideshow logika
     let slideIndex = 0;
     function showSlides() {
         let i;
         const slides = document.getElementsByClassName("mySlides");
+        if (slides.length === 0) return;
         for (i = 0; i < slides.length; i++) {
             slides[i].style.display = "none";
         }
         slideIndex++;
         if (slideIndex > slides.length) { slideIndex = 1 }
-        if (slides.length > 0) {
-            slides[slideIndex - 1].style.display = "block";
-            setTimeout(showSlides, 2000); 
-        }
+        slides[slideIndex - 1].style.display = "block";
+        setTimeout(showSlides, 2000); 
     }
     showSlides();
 
-    // Scroll to top
     function scrollToTop() {
         window.scroll({ top: 0, left: 0, behavior: 'smooth' });
     }
 
-    // Cookie kezelés
     document.querySelector("#cookies-btn").addEventListener("click",()=>{
         document.querySelector("#cookies").style.display="none";
-        // Itt volt egy kis hiba a kódodban (expDays), javítva:
         let date = new Date();
         date.setTime(date.getTime() + (30*24*60*60*1000));
         document.cookie = "cookie=true; expires=" + date.toUTCString() + "; path=/";
@@ -112,34 +215,8 @@
     });
 </script>
 
-<footer>
-    <div class="col-25">
-        <h3 class="footernadpis"> Tu sa nachádzame</h3>
-        <iframe src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d10614.839764656655!2d18.0910518!3d48.3084298!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0xba2bad032d96b960!2sFakulta%20pr%C3%ADrodn%C3%BDch%20vied%20a%20informatiky!5e0!3m2!1ssk!2ssk!4v1669307792855!5m2!1ssk!2ssk" width="650" height="280" style="border:0;" allowfullscreen="" loading="lazy"></iframe> 
-    </div>
-    <div class="footermenu2">
-        <h3 class="footernadpis">SLEDUJTE NÁS!</h3>
-        <div class="footerikony">
-            <a href="https://www.facebook.com/david.fagyas.3"><i class="fab fa-facebook-f"></i></a>
-            <a href="https://www.instagram.com/_15david_/"><i class="fab fa-instagram"></i></a>  
-        </div> 
-    </div>
-    <div class="footermail">
-        <h3 class="footernadpis">Pripojte sa k Newsletteru</h3>
-        <input type="email" placeholder="ZADAJTE VÁŠ EMAIL" class="footerinput">
-        <button class="footerbtn">ODOSLAŤ</button>
-    </div>
-</footer>
-
-<footer>
-    <div class="footermenu2">
-        <span class="autor">&copy; Dávid Fagyas, 2026.</span>
-    </div>
-</footer>
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-<div id="goToTop" class="hore" onclick="scrollToTop()" style="cursor: pointer;">
-    <i class="fas fa-arrow-up"></i>
-</div>
-</body>
+<?php 
+// 4. JAVÍTÁS: Az új közös lábléc behívása
+include_once 'views/layout/footer.php'; 
+?>
 </html>

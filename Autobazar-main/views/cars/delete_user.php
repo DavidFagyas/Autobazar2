@@ -1,27 +1,20 @@
 <?php
-require 'db.php';
 session_start();
+require '../../config/Database.php';
 
-// Kontrola, či je používateľ prihlásený a či je administrátor
-if (!isset($_SESSION['user_id']) || $_SESSION['is_admin'] != 1) {
-    die("Nemáte oprávnenie na zobrazenie tejto stránky.");
-}
+if (isset($_GET['id']) && isset($_SESSION['user_id'])) {
+    $id = intval($_GET['id']);
+    $user_id = $_SESSION['user_id'];
 
-$id = $_GET['id'];
-
-// Kontrola, či sa používateľ nesnaží vymazať sám seba
-if ($id == $_SESSION['user_id']) {
-    die("Nemôžete vymazať sám seba.");
-}
-
-// Vymazanie používateľa
-$sql = "DELETE FROM users WHERE id='$id'";
-if ($conn->query($sql) === TRUE) {
-    echo "Používateľ bol úspešne vymazaný.";
+    // BIZTONSÁG: Csak akkor törölheted, ha az ID a tiéd!
+    $stmt = $conn->prepare("DELETE FROM inzerati WHERE id = ? AND pouzivatel_id = ?");
+    $stmt->bind_param("ii", $id, $user_id);
+    
+    if ($stmt->execute()) {
+        header("Location: moje_inzeraty.php?status=deleted");
+    } else {
+        echo "Chyba pri mazaní.";
+    }
 } else {
-    echo "Chyba: " . $conn->error;
+    header("Location: moje_inzeraty.php");
 }
-
-// Návrat na administrátorskú stránku
-header("Location: admin.php");
-?>

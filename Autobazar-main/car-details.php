@@ -1,195 +1,287 @@
 <?php
 session_start();
-require 'config/Database.php';
 
-if (isset($_GET['id'])) {
-    $id = intval($_GET['id']);
+// 1. ADATBÁZIS ÉS MODELL BEHÍVÁSA
+require_once 'config/Database.php'; 
+require_once 'models/Inzerat.php'; // Beemeljük az Inzerat osztályt
+include_once 'views/layout/header.php';
 
-    // 1. Lekérjük az autó adatait
-    $stmt = $conn->prepare("SELECT * FROM inzerati WHERE id = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $car = $result->fetch_assoc();
+if (!isset($_GET['id'])) {
+    header("Location: dostupne-auta.php");
+    exit();
+}
 
-    if (!$car) {
-        die("Inzerát nebol nájdený!");
-    }
+$id = intval($_GET['id']);
 
-    // 2. Összegyűjtjük az összes képet egy tömbbe a JavaScript számára
-    $all_images = [];
-    $all_images[] = $car['obraz']; // A főkép az első
+// 2. OOP PÉLDÁNYOSÍTÁS
+$inzeratManager = new Inzerat($conn);
 
-    $img_stmt = $conn->prepare("SELECT cesta_k_obrazku FROM galeria WHERE inzerat_id = ?");
-    $img_stmt->bind_param("i", $id);
-    $img_stmt->execute();
-    $images_result = $img_stmt->get_result();
+// 3. ADATOK LEKÉRÉSE OBJEKTUMON KERESZTÜL (Nincs nyers SQL a nézetben!)
+$car = $inzeratManager->getInzeratById($id);
 
-    while($img = $images_result->fetch_assoc()) {
-        $all_images[] = $img['cesta_k_obrazku'];
-    }
-} else {
-    die("Chýbajúce ID inzerátu!");
+if (!$car) {
+    die("<div style='color:white; text-align:center; padding:50px;'>Inzerát sa nenašiel.</div>");
+}
+
+// 4. GALÉRIA LEKÉRÉSE A MODELLBŐL
+$galeria_kepek = $inzeratManager->getGaleriaByInzeratId($id);
+
+$kepek = [];
+$kepek[] = $car['obraz']; // A fő kép az első
+foreach ($galeria_kepek as $kep_ut) {
+    $kepek[] = $kep_ut;
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="sk">
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="assets/Style1.css">
-    <title><?php echo htmlspecialchars($car['Nazov']); ?> - Detail</title>
-    <style>
-        /* Slider tároló */
-        .slider-container {
-            position: relative;
-            width: 100%;
-            height: 450px;
-            background: #f0f0f0;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 15px;
-        }
-
-        .slider-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain; /* Így nem torzul a kép, látszik az egész */
-            background: #222;
-        }
-
-        /* Nyilak stílusa */
-        .prev, .next {
-            cursor: pointer;
-            position: absolute;
-            top: 50%;
-            width: auto;
-            padding: 16px;
-            margin-top: -22px;
-            color: white;
-            font-weight: bold;
-            font-size: 24px;
-            transition: 0.3s;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 5px;
-            user-select: none;
-            text-decoration: none;
-        }
-
-        .next { right: 10px; }
-        .prev { left: 10px; }
-
-        .prev:hover, .next:hover {
-            background: rgba(0, 0, 0, 0.8);
-        }
-
-        /* Miniatűrök rácsa */
-        .gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .gallery-grid img {
-            width: 100%;
-            height: 70px;
-            object-fit: cover;
-            border-radius: 5px;
-            cursor: pointer;
-            opacity: 0.6;
-            transition: 0.3s;
-            border: 2px solid transparent;
-        }
-
-        .gallery-grid img:hover, .gallery-grid img.active {
-            opacity: 1;
-            border-color: #4CAF50;
-        }
-    </style>
-</head>
-<body>
-
-<header>
-    <a href="index.php"><img src="assets/logo.jpg" height="75px"></a>
-    <h1>Detail inzerátu</h1>
-    <nav><a href="dostupne-auta.php">Späť na ponuku</a></nav>
-</header>
-
-<div style="max-width: 800px; margin: 40px auto; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
+<style>
+    .detail-container {
+        max-width: 1000px;
+        margin: 30px auto;
+        background: white;
+        border-radius: 15px;
+        overflow: hidden;
+        display: flex;
+        flex-wrap: wrap;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    }
     
-    <!-- SLIDER RÉSZ -->
-    <div class="slider-container">
-        <img src="<?php echo $all_images[0]; ?>" id="mainSliderImg">
+    /* SLIDER STÍLUS */
+    .detail-image {
+        flex: 1;
+        min-width: 400px;
+        background: #fff;
+        position: relative;
+        height: 500px;
+        overflow: hidden;
+    }
+    .slider-img-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    .slider-img-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s;
+    }
+    .slider-img-container img:hover {
+        transform: scale(1.05);
+    }
+    .slider-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(0,0,0,0.5);
+        color: white;
+        padding: 15px;
+        cursor: pointer;
+        border: none;
+        font-size: 24px;
+        transition: 0.3s;
+        z-index: 10;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .slider-arrow:hover { background: rgba(0,0,0,0.8); }
+    .prev { left: 15px; }
+    .next { right: 15px; }
+    
+    .image-counter {
+        position: absolute;
+        bottom: 15px;
+        right: 15px;
+        background: rgba(0,0,0,0.6);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 14px;
+        z-index: 10;
+    }
+
+    /* LIGHTBOX (NAGYÍTÁS) STÍLUS */
+    .lightbox {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.9);
+        overflow: auto;
+        align-items: center;
+        justify-content: center;
+    }
+    .lightbox-content {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+        border: 4px solid white;
+        border-radius: 10px;
+    }
+    .lightbox-close {
+        position: absolute;
+        top: 20px;
+        right: 35px;
+        color: white;
+        font-size: 40px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    .lightbox-close:hover { color: #bbb; }
+
+    .detail-info {
+        flex: 1;
+        padding: 30px;
+        min-width: 300px;
+    }
+    .price-big {
+        font-size: 2em;
+        color: #e44d26;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+    .specs-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin: 20px 0;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 10px;
+    }
+    .spec-item {
+        font-size: 0.9em;
+        color: #555;
+    }
+    .spec-item strong {
+        display: block;
+        color: #333;
+        font-size: 1.1em;
+    }
+    .description-box {
+        margin-top: 20px;
+        line-height: 1.6;
+        color: #444;
+        border-top: 1px solid #eee;
+        padding-top: 15px;
+    }
+    
+    /* Elérhetőség doboz stílus */
+    .contact-box {
+        margin-top: 25px;
+        padding: 15px;
+        background: #eef5fc;
+        border-left: 5px solid #007bff;
+        border-radius: 4px;
+        color: #333;
+        margin-bottom: 15px;
+    }
+    .contact-box p { margin: 5px 0; font-size: 1em; }
+</style>
+
+<div style="background-color: #333; padding: 20px; min-height: 100vh;">
+    <div class="detail-container">
         
-        <?php if(count($all_images) > 1): ?>
-            <a class="prev" onclick="moveSlide(-1)">&#10094;</a>
-            <a class="next" onclick="moveSlide(1)">&#10095;</a>
-        <?php endif; ?>
-    </div>
+        <div class="detail-image">
+            <div class="slider-img-container" onclick="openLightbox()">
+                <img id="mainSliderImg" src="<?php echo $kepek[0]; ?>" alt="Auto">
+            </div>
+            
+            <?php if(count($kepek) > 1): ?>
+                <button class="slider-arrow prev" onclick="event.stopPropagation(); changeImg(-1)">&#10094;</button>
+                <button class="slider-arrow next" onclick="event.stopPropagation(); changeImg(1)">&#10095;</button>
+                <div class="image-counter">
+                    <span id="currentIdx">1</span> / <?php echo count($kepek); ?>
+                </div>
+            <?php endif; ?>
+        </div>
 
-    <!-- MINIATŰRÖK -->
-    <div class="gallery-grid">
-        <?php foreach($all_images as $index => $path): ?>
-            <img src="<?php echo $path; ?>" 
-                 class="thumb-img <?php echo $index === 0 ? 'active' : ''; ?>" 
-                 onclick="setSlide(<?php echo $index; ?>)">
-        <?php endforeach; ?>
-    </div>
-    
-    <!-- ADATOK -->
-    <h2 style="margin-top: 25px;"><?php echo htmlspecialchars($car['Nazov']); ?></h2>
-    <hr>
-    
-    <p style="font-size: 1.5em; color: #4CAF50; font-weight: bold;">Cena: <?php echo number_format($car['cena'], 2, ',', ' '); ?> €</p>
-    
-    <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-top: 20px;">
-        <h3>Popis a špecifikácia:</h3>
-        <p><?php echo nl2br(htmlspecialchars($car['popis'])); ?></p>
-    </div>
-    
-    <p style="margin-top: 20px; color: #777;">Pridané: <?php echo $car['datum']; ?></p>
-    
-    <div style="margin-top: 30px;">
-        <a href="kontakt.php" class="footerbtn" style="padding: 10px 20px; text-decoration: none;">Mám záujem / Kontaktovať predajcu</a>
+        <div class="detail-info">
+            <h1 style="margin:0;"><?php echo htmlspecialchars($car['Nazov']); ?></h1>
+            <div class="price-big"><?php echo number_format($car['cena'], 0, ',', ' '); ?> €</div>
+
+            <h3>Technické údaje:</h3>
+            <div class="specs-grid">
+                <div class="spec-item">
+                    <span>Palivo</span>
+                    <strong><?php echo htmlspecialchars($car['Palivo'] ?? 'Nezadané'); ?></strong>
+                </div>
+                <div class="spec-item">
+                    <span>Prevodovka</span>
+                    <strong><?php echo htmlspecialchars($car['Prevodovka'] ?? 'Nezadané'); ?></strong>
+                </div>
+                <div class="spec-item">
+                    <span>Najazdené km</span>
+                    <strong><?php echo number_format($car['KM'] ?? 0, 0, ',', ' '); ?> km</strong>
+                </div>
+                <div class="spec-item">
+                    <span>Pohon</span>
+                    <strong><?php echo htmlspecialchars($car['Pohon'] ?? 'Nezadané'); ?></strong>
+                </div>
+            </div>
+
+            <div class="description-box">
+                <h4>Popis predajcu:</h4>
+                <p><?php echo nl2br(htmlspecialchars($car['popis'])); ?></p>
+            </div>
+
+            <div class="contact-box">
+                <h4 style="margin: 0 0 10px 0; color: #007bff;"><i class="fas fa-address-card"></i> Kontakt na predajcu</h4>
+                <p><strong>Predajca (Meno):</strong> <?php echo htmlspecialchars($car['username'] ?? 'Neznámy predajca'); ?></p>
+                <p><strong>Telefónne číslo:</strong> <span style="color: #333; font-weight: bold;"><?php echo htmlspecialchars($car['tel_cislo'] ?? 'Neuvedené'); ?></span></p>
+            </div>
+
+            <a href="dostupne-auta.php" style="display:block; text-align:center; color:#666; text-decoration:none; margin-top:15px;">← Späť na zoznam</a>
+        </div>
     </div>
 </div>
 
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+    <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+    <img id="lightboxImg" class="lightbox-content" src="" alt="Zväčšený obrázok">
+</div>
+
 <script>
-    // Átadjuk a PHP tömböt a JavaScriptnek
-    const images = <?php echo json_encode($all_images); ?>;
-    let currentIndex = 0;
-    const sliderImg = document.getElementById('mainSliderImg');
-    const thumbs = document.getElementsByClassName('thumb-img');
+    let currentImgIdx = 0;
+    const carImages = <?php echo json_encode($kepek); ?>;
 
-    function updateDisplay() {
-        // Kép frissítése
-        sliderImg.src = images[currentIndex];
-        
-        // Aktív keret frissítése a miniatűrökön
-        for (let i = 0; i < thumbs.length; i++) {
-            thumbs[i].classList.remove('active');
+    function changeImg(direction) {
+        currentImgIdx += direction;
+
+        if (currentImgIdx >= carImages.length) {
+            currentImgIdx = 0;
         }
-        thumbs[currentIndex].classList.add('active');
+        if (currentImgIdx < 0) {
+            currentImgIdx = carImages.length - 1;
+        }
+
+        document.getElementById('mainSliderImg').src = carImages[currentImgIdx];
+        document.getElementById('currentIdx').innerText = currentImgIdx + 1;
     }
 
-    function moveSlide(step) {
-        currentIndex += step;
+    function openLightbox() {
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightboxImg');
+        const currentImg = document.getElementById('mainSliderImg');
         
-        if (currentIndex >= images.length) {
-            currentIndex = 0; // Vissza az elejére
-        }
-        if (currentIndex < 0) {
-            currentIndex = images.length - 1; // Utolsóra ugrik
-        }
-        updateDisplay();
+        lightboxImg.src = currentImg.src;
+        lightbox.style.display = 'flex';
     }
 
-    function setSlide(index) {
-        currentIndex = index;
-        updateDisplay();
+    function closeLightbox() {
+        document.getElementById('lightbox').style.display = 'none';
     }
 </script>
-
-</body>
-</html>
+<?php 
+// 4. JAVÍTÁS: Az új közös lábléc behívása
+include_once 'views/layout/footer.php'; 
+?>

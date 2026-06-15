@@ -2,82 +2,13 @@
 session_start();
 // Adatbázis kapcsolat - a főkönyvtárhoz képest
 require 'config/Database.php'; 
+include_once 'views/layout/header.php';
 ?>
 <!DOCTYPE html>
 <html lang="sk">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="assets/Style1.css">
-    <title>Dostupné autá</title>
-    <style>
-        .car-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            padding: 20px;
-            justify-content: center;
-        }
-        .car-card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            width: 300px;
-            padding: 15px;
-            text-align: center;
-            background: #fff;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-        }
-        .car-card:hover {
-            transform: scale(1.02);
-        }
-        .car-card img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .price-tag {
-            font-weight: bold;
-            color: #4CAF50;
-            font-size: 1.2em;
-        }
-        .car-link {
-            text-decoration: none;
-            color: inherit;
-        }
-        .detail-btn {
-            display: inline-block;
-            width: 100%;
-            background-color: #333;
-            color: white;
-            padding: 10px 0;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 10px;
-        }
-        .detail-btn:hover {
-            background-color: #555;
-        }
-    </style>
-</head>
 
 <body>
-<header>
-    <a href="index.php">
-        <img src="assets/logo.jpg" height="75px" width="105px">
-    </a>
-    <h1>Dostupné autá</h1>
-    <nav>
-        <ul class="navbar-nav">
-            <li><a class="nav-link" href="index.php">Domov</a></li>
-            <li><a class="nav-link" href="dostupne-auta.php">Dostupné autá</a></li>
-            <li><a class="nav-link" href="onas.php">O nás</a></li>
-            <li><a class="nav-link" href="kontakt.php">KONTAKT</a></li>
-        </ul>
-    </nav>
-</header>
+
 
 <section>
     <h2 style="text-align:center; margin-top:20px;">Ponuka vozidiel</h2>
@@ -138,19 +69,6 @@ require 'config/Database.php';
     </div>
 </section>
 
-<footer>
-    <div class="col-25">
-        <h3 class="footernadpis"> Tu sa nachádzame</h3>
-        <iframe src="https://www.google.com/maps/embed?pb=..." width="650" height="280" style="border:0;" allowfullscreen="" loading="lazy"></iframe> 
-    </div>
-    <div class="footermenu2">
-        <h3 class="footernadpis">SLEDUJTE NÁS!</h3>
-        <div class="footerikony">
-            <a href="#"><i class="fab fa-facebook-f"></i></a>
-            <a href="#"><i class="fab fa-instagram"></i></a>  
-        </div> 
-    </div>
-</footer>
 
 <div id="goToTop" class="hore" onclick="scrollToTop()">
     <i class="fas fa-arrow-up"></i>
@@ -161,5 +79,9 @@ function scrollToTop() {
     window.scroll({ top: 0, left: 0, behavior: 'smooth' });
 }
 </script>
+<?php 
+// 4. JAVÍTÁS: Az új közös lábléc behívása
+include_once 'views/layout/footer.php'; 
+?>
 </body>
 </html>
